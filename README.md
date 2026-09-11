@@ -129,3 +129,17 @@ To create a standalone setup executable that installs and configures the driver 
 
 This project is licensed under the [MIT License](LICENSE) - see the LICENSE file for details.
 Based on the open-source Sysvad/Virtual-Audio-Driver project.
+
+---
+
+## 🛡️ Code Signing Policy
+
+Free code signing provided by [SignPath.io](https://signpath.io), certificate by [SignPath Foundation](https://signpath.org).
+
+### Team Roles & Governance
+- **Project Lead & Author**: [Nactro Development](https://github.com/Nactro-Development)
+- **Reviewers & Approvers**: Core Maintainers of Nactro Development
+- **Build & Release Pipeline**: Fully automated via public GitHub Actions runners from tagged releases.
+
+### 🔒 Privacy & Data Security
+DeckX Virtual Audio Driver processes audio exclusively within the local Windows kernel and user-mode memory on the user's computer. It does not collect, record, track, transmit, or store any personal information, telemetry, or audio content to external servers.
