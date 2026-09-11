@@ -10,8 +10,8 @@
     <_WDKVersion Condition="'$(_WDKVersion)' == '' and Exists('$(_WDKRoot)\Include\10.0.22000.0\km')">10.0.22000.0</_WDKVersion>
     <_WDKVersion Condition="'$(_WDKVersion)' == '' and Exists('$(_WDKRoot)\Include\10.0.28000.0\km')">10.0.28000.0</_WDKVersion>
 
-    <!-- Populate DDK_INC_PATH with kernel-mode include directories -->
-    <DDK_INC_PATH Condition="'$(DDK_INC_PATH)' == '' and '$(_WDKVersion)' != ''">$(_WDKRoot)\Include\$(_WDKVersion)\km;$(_WDKRoot)\Include\$(_WDKVersion)\km\crt;$(_WDKRoot)\Include\$(_WDKVersion)\shared;$(_WDKRoot)\Include\wdf\kmdf\1.15;$(_WDKRoot)\Include\wdf\kmdf\1.33</DDK_INC_PATH>
+    <!-- Populate DDK_INC_PATH with kernel-mode and KMDF include directories -->
+    <DDK_INC_PATH Condition="'$(_WDKVersion)' != ''">$(_WDKRoot)\Include\$(_WDKVersion)\km;$(_WDKRoot)\Include\$(_WDKVersion)\km\crt;$(_WDKRoot)\Include\$(_WDKVersion)\shared;$(_WDKRoot)\Include\wdf\kmdf\1.9;$(_WDKRoot)\Include\wdf\kmdf\1.11;$(_WDKRoot)\Include\wdf\kmdf\1.15;$(_WDKRoot)\Include\wdf\kmdf\1.25;$(_WDKRoot)\Include\wdf\kmdf\1.31;$(_WDKRoot)\Include\wdf\kmdf\1.33</DDK_INC_PATH>
   </PropertyGroup>
 
   <ItemDefinitionGroup>
