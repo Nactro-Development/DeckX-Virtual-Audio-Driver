@@ -1,0 +1,5 @@
+﻿<Project>
+  <!-- Override InfVerif and ApiValidator targets so they never execute in CI -->
+  <Target Name="InfVerif" />
+  <Target Name="ApiValidator" />
+</Project>

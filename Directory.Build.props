@@ -10,7 +10,7 @@
     <_WDKVersion Condition="'$(_WDKVersion)' == '' and Exists('$(_WDKRoot)\Include\10.0.22000.0\km')">10.0.22000.0</_WDKVersion>
     <_WDKVersion Condition="'$(_WDKVersion)' == '' and Exists('$(_WDKRoot)\Include\10.0.28000.0\km')">10.0.28000.0</_WDKVersion>
 
-    <!-- Disable problematic InfVerif and ApiValidator targets in CI builds -->
+    <!-- Disable problematic InfVerif and ApiValidator in CI builds -->
     <UseInfVerifierEx>false</UseInfVerifierEx>
     <ValidateDrivers>false</ValidateDrivers>
     <InfVerif_Enable>false</InfVerif_Enable>
@@ -21,8 +21,8 @@
     <!-- Populate DDK_INC_PATH with kernel-mode and KMDF include directories -->
     <DDK_INC_PATH Condition="'$(_WDKVersion)' != ''">$(_WDKRoot)\Include\$(_WDKVersion)\km;$(_WDKRoot)\Include\$(_WDKVersion)\km\crt;$(_WDKRoot)\Include\$(_WDKVersion)\shared;$(_WDKRoot)\Include\wdf\kmdf\1.15;$(_WDKRoot)\Include\wdf\kmdf\1.25;$(_WDKRoot)\Include\wdf\kmdf\1.31;$(_WDKRoot)\Include\wdf\kmdf\1.33</DDK_INC_PATH>
     
-    <!-- Populate DDK_LIB_PATH with kernel-mode lib directory -->
-    <DDK_LIB_PATH Condition="'$(_WDKVersion)' != ''">$(_WDKRoot)\Lib\$(_WDKVersion)\km\$(Platform)</DDK_LIB_PATH>
+    <!-- Populate DDK_LIB_PATH with trailing backslash to prevent x64BufferOverflowFastFailK concatenation bug -->
+    <DDK_LIB_PATH Condition="'$(_WDKVersion)' != ''">$(_WDKRoot)\Lib\$(_WDKVersion)\km\$(Platform)\</DDK_LIB_PATH>
   </PropertyGroup>
 
   <ItemDefinitionGroup>
