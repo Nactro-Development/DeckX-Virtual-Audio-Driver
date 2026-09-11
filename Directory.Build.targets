@@ -1,5 +1,9 @@
 ﻿<Project>
-  <!-- Override InfVerif and ApiValidator targets so they never execute in CI -->
-  <Target Name="InfVerif" />
-  <Target Name="ApiValidator" />
+  <!-- Pre-ensure INF is in target directory before package project tries to copy it -->
+  <Target Name="PreEnsureInf" BeforeTargets="PrepareForBuild;Build;DriverPackageTarget">
+    <MakeDir Directories="$(SolutionDir)Source\Main\$(Platform)\$(Configuration)" Condition="!Exists('$(SolutionDir)Source\Main\$(Platform)\$(Configuration)')" />
+    <Copy SourceFiles="$(SolutionDir)Source\Main\VirtualAudioDriver.inf"
+          DestinationFiles="$(SolutionDir)Source\Main\$(Platform)\$(Configuration)\VirtualAudioDriver.inf"
+          Condition="Exists('$(SolutionDir)Source\Main\VirtualAudioDriver.inf') and !Exists('$(SolutionDir)Source\Main\$(Platform)\$(Configuration)\VirtualAudioDriver.inf')" />
+  </Target>
 </Project>

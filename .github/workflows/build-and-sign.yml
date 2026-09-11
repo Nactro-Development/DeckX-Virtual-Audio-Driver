@@ -27,6 +27,19 @@ jobs:
           choco install visualstudio2022-workload-vctools -y --no-progress
           choco install windowsdriverkit11 -y --no-progress
 
+      - name: Pre-generate INF from INX template
+        run: |
+          $infContent = Get-Content "Source\Main\VirtualAudioDriver.inx" -Raw
+          $infContent = $infContent.Replace('$ARCH$', 'amd64').Replace('$KMDFVERSION$', '1.15')
+          
+          # Target output directories
+          $outDirs = @("Source\Main\x64\Release", "x64\Release", "Source\Main")
+          foreach ($dir in $outDirs) {
+            if (-not (Test-Path $dir)) { New-Item -Path $dir -ItemType Directory -Force }
+            Set-Content -Path "$dir\VirtualAudioDriver.inf" -Value $infContent -Encoding Unicode
+          }
+          Write-Host "Pre-generated VirtualAudioDriver.inf in target folders successfully!"
+
       - name: Build Driver Solution
         run: |
           msbuild VirtualAudioDriver.sln `
@@ -51,6 +64,8 @@ jobs:
           Copy-Item "Package\x64\Release\package\*.sys" $artifactDir -Force -ErrorAction SilentlyContinue
           Copy-Item "Package\x64\Release\package\*.inf" $artifactDir -Force -ErrorAction SilentlyContinue
           Copy-Item "Package\x64\Release\package\*.cat" $artifactDir -Force -ErrorAction SilentlyContinue
+          Copy-Item "Source\Main\x64\Release\*.sys" $artifactDir -Force -ErrorAction SilentlyContinue
+          Copy-Item "Source\Main\x64\Release\*.inf" $artifactDir -Force -ErrorAction SilentlyContinue
           Copy-Item "Installer\devcon.exe" $artifactDir -Force
           Copy-Item "Installer\apply_deckx_branding.ps1" $artifactDir -Force
           Copy-Item "Installer\install_driver.bat" $artifactDir -Force
