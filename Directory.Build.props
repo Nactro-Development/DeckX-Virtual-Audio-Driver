@@ -1,0 +1,22 @@
+﻿<Project>
+  <PropertyGroup>
+    <!-- Find WDK root on runner or local system -->
+    <_WDKRoot Condition="'$(_WDKRoot)' == '' and Exists('C:\Program Files (x86)\Windows Kits\10')">C:\Program Files (x86)\Windows Kits\10</_WDKRoot>
+    <_WDKRoot Condition="'$(_WDKRoot)' == '' and Exists('D:\New folder (2)')">D:\New folder (2)</_WDKRoot>
+    
+    <!-- Auto-detect latest WDK version installed -->
+    <_WDKVersion Condition="'$(_WDKVersion)' == '' and Exists('$(_WDKRoot)\Include\10.0.26100.0\km')">10.0.26100.0</_WDKVersion>
+    <_WDKVersion Condition="'$(_WDKVersion)' == '' and Exists('$(_WDKRoot)\Include\10.0.22621.0\km')">10.0.22621.0</_WDKVersion>
+    <_WDKVersion Condition="'$(_WDKVersion)' == '' and Exists('$(_WDKRoot)\Include\10.0.22000.0\km')">10.0.22000.0</_WDKVersion>
+    <_WDKVersion Condition="'$(_WDKVersion)' == '' and Exists('$(_WDKRoot)\Include\10.0.28000.0\km')">10.0.28000.0</_WDKVersion>
+
+    <!-- Populate DDK_INC_PATH with kernel-mode include directories -->
+    <DDK_INC_PATH Condition="'$(DDK_INC_PATH)' == '' and '$(_WDKVersion)' != ''">$(_WDKRoot)\Include\$(_WDKVersion)\km;$(_WDKRoot)\Include\$(_WDKVersion)\km\crt;$(_WDKRoot)\Include\$(_WDKVersion)\shared;$(_WDKRoot)\Include\wdf\kmdf\1.15;$(_WDKRoot)\Include\wdf\kmdf\1.33</DDK_INC_PATH>
+  </PropertyGroup>
+
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);$(DDK_INC_PATH)</AdditionalIncludeDirectories>
+    </ClCompile>
+  </ItemDefinitionGroup>
+</Project>

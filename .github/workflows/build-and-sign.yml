@@ -12,7 +12,7 @@ on:
 jobs:
   build:
     name: Build Driver (Release x64)
-    runs-on: windows-latest
+    runs-on: windows-2022
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -20,16 +20,47 @@ jobs:
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
 
-      - name: Install WDK and C++ Build Tools
+      - name: Install Visual Studio WDK and C++ Workloads
         run: |
+          choco install visualstudio2022-workload-manageddesktop -y --no-progress
           choco install visualstudio2022-workload-nativedesktop -y --no-progress
+          choco install visualstudio2022-workload-vctools -y --no-progress
           choco install windowsdriverkit11 -y --no-progress
+
+      - name: Configure WDK Environment and Include Paths
+        run: |
+          # 1. Discover portcls.h and resolve kernel include paths
+          Write-Host "Searching for portcls.h..."
+          $portcls = Get-ChildItem -Path "C:\Program Files (x86)\Windows Kits\10\Include" -Recurse -Filter "portcls.h" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($portcls) {
+            $kmDir = Split-Path -Parent $portcls.FullName
+            $incVerDir = Split-Path -Parent $kmDir
+            $sharedDir = "$incVerDir\shared"
+            $crtDir = "$kmDir\crt"
+            $wdfDir = (Get-ChildItem -Path "C:\Program Files (x86)\Windows Kits\10\Include\wdf\kmdf" -ErrorAction SilentlyContinue | Select-Object -Last 1).FullName
+            $resolvedInc = "$kmDir;$crtDir;$sharedDir;$wdfDir"
+            Write-Host "Resolved DDK_INC_PATH: $resolvedInc"
+            echo "DDK_INC_PATH=$resolvedInc" >> $env:GITHUB_ENV
+          } else {
+            Write-Warning "Could not find portcls.h directly in Windows Kits include."
+          }
+
+          # 2. Fix InfVerif dummy dll to prevent inf verification crashes
+          $infVerif = Get-ChildItem -Path "C:\Program Files (x86)\Windows Kits\10" -Recurse -Filter "InfVerif.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($infVerif) {
+            $targetDir = "$((Split-Path -Parent $infVerif.FullName))\x86"
+            if (-not (Test-Path $targetDir)) { New-Item -Path $targetDir -ItemType Directory -Force }
+            if (-not (Test-Path "$targetDir\infverif.dll")) {
+              [System.IO.File]::WriteAllBytes("$targetDir\infverif.dll", [byte[]]@(0x4D, 0x5A))
+            }
+          }
 
       - name: Build Driver Solution
         run: |
           msbuild VirtualAudioDriver.sln `
             /p:Configuration=Release `
             /p:Platform=x64 `
+            /p:DDK_INC_PATH="$env:DDK_INC_PATH" `
             /p:RunCodeAnalysis=false `
             /p:ValidateDrivers=false `
             /m
