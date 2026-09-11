@@ -9,6 +9,66 @@
 #pragma warning (disable : 4127)
 
 //=============================================================================
+// DeckX Virtual Audio Driver: Global Shared Loopback Ring Buffer
+//=============================================================================
+#define DECKX_LOOPBACK_BUFFER_SIZE (64 * 1024) // 64 KB ring buffer for low latency audio transfer
+static BYTE  g_DeckXLoopbackBuffer[DECKX_LOOPBACK_BUFFER_SIZE];
+static ULONG g_DeckXLoopbackWritePos = 0;
+static ULONG g_DeckXLoopbackReadPos = 0;
+static KSPIN_LOCK g_DeckXLoopbackLock;
+static BOOLEAN    g_DeckXLoopbackLockInitialized = FALSE;
+
+static void DeckX_WriteToLoopback(const BYTE* pData, ULONG byteCount)
+{
+    if (!pData || byteCount == 0) return;
+    if (!g_DeckXLoopbackLockInitialized)
+    {
+        KeInitializeSpinLock(&g_DeckXLoopbackLock);
+        g_DeckXLoopbackLockInitialized = TRUE;
+    }
+
+    KIRQL oldIrql;
+    KeAcquireSpinLock(&g_DeckXLoopbackLock, &oldIrql);
+
+    for (ULONG i = 0; i < byteCount; i++)
+    {
+        g_DeckXLoopbackBuffer[g_DeckXLoopbackWritePos] = pData[i];
+        g_DeckXLoopbackWritePos = (g_DeckXLoopbackWritePos + 1) % DECKX_LOOPBACK_BUFFER_SIZE;
+    }
+
+    KeReleaseSpinLock(&g_DeckXLoopbackLock, oldIrql);
+}
+
+static void DeckX_ReadFromLoopback(BYTE* pDest, ULONG byteCount)
+{
+    if (!pDest || byteCount == 0) return;
+    if (!g_DeckXLoopbackLockInitialized)
+    {
+        KeInitializeSpinLock(&g_DeckXLoopbackLock);
+        g_DeckXLoopbackLockInitialized = TRUE;
+    }
+
+    KIRQL oldIrql;
+    KeAcquireSpinLock(&g_DeckXLoopbackLock, &oldIrql);
+
+    for (ULONG i = 0; i < byteCount; i++)
+    {
+        if (g_DeckXLoopbackReadPos != g_DeckXLoopbackWritePos)
+        {
+            pDest[i] = g_DeckXLoopbackBuffer[g_DeckXLoopbackReadPos];
+            g_DeckXLoopbackReadPos = (g_DeckXLoopbackReadPos + 1) % DECKX_LOOPBACK_BUFFER_SIZE;
+        }
+        else
+        {
+            // If buffer is empty, fill with silence
+            pDest[i] = 0;
+        }
+    }
+
+    KeReleaseSpinLock(&g_DeckXLoopbackLock, oldIrql);
+}
+
+//=============================================================================
 // CMiniportWaveRTStream
 //=============================================================================
 
@@ -1397,7 +1457,8 @@ VOID CMiniportWaveRTStream::WriteBytes
 
 Routine Description:
 
-This function writes the audio buffer using silence instead of a tone generator
+This function is called for Capture (Microphone). It reads audio from the DeckX Loopback
+ring buffer and populates the DMA buffer for applications (Discord, OBS, etc.)
 
 Arguments:
 
@@ -1407,14 +1468,12 @@ ByteDisplacement - # of bytes to process.
 {
     ULONG bufferOffset = m_ullLinearPosition % m_ulDmaBufferSize;
 
-    // Normally this will loop no more than once for a single wrap, but if
-    // many bytes have been displaced then this may loops many times.
     while (ByteDisplacement > 0)
     {
         ULONG runWrite = min(ByteDisplacement, m_ulDmaBufferSize - bufferOffset);
         
-        // Instead of generating a tone, just output silence
-        RtlZeroMemory(m_pDmaBuffer + bufferOffset, runWrite);
+        // Read incoming audio routed from DeckX Audio Cable into Virtual Microphone
+        DeckX_ReadFromLoopback(m_pDmaBuffer + bufferOffset, runWrite);
            	
         bufferOffset = (bufferOffset + runWrite) % m_ulDmaBufferSize;
         ByteDisplacement -= runWrite;
@@ -1431,7 +1490,8 @@ VOID CMiniportWaveRTStream::ReadBytes
 
 Routine Description:
 
-This function reads the audio buffer and saves the data in a file.
+This function is called for Render (DeckX Audio Cable playback). It grabs audio frames 
+played by applications/DeckX and puts them into the DeckX Loopback ring buffer.
 
 Arguments:
 
@@ -1441,12 +1501,13 @@ ByteDisplacement - # of bytes to process.
 {
     ULONG bufferOffset = m_ullLinearPosition % m_ulDmaBufferSize;
 
-    // Normally this will loop no more than once for a single wrap, but if
-    // many bytes have been displaced then this may loops many times.
     while (ByteDisplacement > 0)
     {
         ULONG runWrite = min(ByteDisplacement, m_ulDmaBufferSize - bufferOffset);
-        m_SaveData.WriteData(m_pDmaBuffer + bufferOffset, runWrite);
+        
+        // Write audio played into DeckX Audio Cable into the Loopback ring buffer
+        DeckX_WriteToLoopback(m_pDmaBuffer + bufferOffset, runWrite);
+
         bufferOffset = (bufferOffset + runWrite) % m_ulDmaBufferSize;
         ByteDisplacement -= runWrite;
     }
