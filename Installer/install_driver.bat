@@ -19,7 +19,11 @@ if exist "DeckXVirtualAudio.inf" (
     set INF_NAME=VirtualAudioDriver.inf
 )
 
+pnputil /add-driver "%INF_NAME%" /install
+devcon.exe update "%INF_NAME%" ROOT\DeckXVirtualAudio
 devcon.exe install "%INF_NAME%" ROOT\DeckXVirtualAudio
+devcon.exe restart ROOT\DeckXVirtualAudio
+devcon.exe restart ROOT\MEDIA\0001
 
 echo ========================================================
 echo     Applying DeckX Virtual Microphone Branding...

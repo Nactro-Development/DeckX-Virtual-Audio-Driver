@@ -32,16 +32,20 @@ jobs:
 
       - name: Pre-generate INF from INX template
         run: |
+          $dateStr = (Get-Date).ToString("MM/dd/yyyy")
+          $verStr = "1.0." + $env:GITHUB_RUN_NUMBER + ".0"
           $infContent = Get-Content "Source\Main\VirtualAudioDriver.inx" -Raw
           $infContent = $infContent.Replace('$ARCH$', 'amd64').Replace('$KMDFVERSION$', '1.15')
+          $infContent = $infContent -replace "DriverVer\s*=.*", "DriverVer = $dateStr, $verStr"
           
           # Target output directories
-          $outDirs = @("Source\Main\x64\Release", "x64\Release", "Source\Main")
+          $outDirs = @("Source\Main\x64\Release", "x64\Release", "Source\Main", "Installer")
           foreach ($dir in $outDirs) {
             if (-not (Test-Path $dir)) { New-Item -Path $dir -ItemType Directory -Force }
             Set-Content -Path "$dir\VirtualAudioDriver.inf" -Value $infContent -Encoding Unicode
+            Set-Content -Path "$dir\DeckXVirtualAudio.inf" -Value $infContent -Encoding Unicode
           }
-          Write-Host "Pre-generated VirtualAudioDriver.inf in target folders successfully!"
+          Write-Host "Pre-generated VirtualAudioDriver.inf ($dateStr, $verStr) successfully!"
 
       - name: Build Driver Solution
         run: |
