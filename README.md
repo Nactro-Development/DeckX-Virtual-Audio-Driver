@@ -1,161 +1,131 @@
-> [!WARNING]
-> This software is in beta and requires test signing to be enabled.
+﻿# DeckX Virtual Audio Driver
 
-> [!NOTE]
-> Software Developers/Organizations: Looking to implement Virtual speakers/mics into your app? For advanced/custom functionality like named pipes, shared memory buffers (for no-latency audio), direct integration with your existing apps, and more; Contact us for quotes on a custom build! contact@mikethetech.com
+[![Build and Sign](https://github.com/Nactro-Development/DeckX-Virtual-Audio-Driver/actions/workflows/build-and-sign.yml/badge.svg)](https://github.com/Nactro-Development/DeckX-Virtual-Audio-Driver/actions/workflows/build-and-sign.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-# Virtual Audio Driver by MikeTheTech
+A high-performance, low-latency Windows Virtual Audio Driver developed by **Nactro Development** for **DeckX Control Studio**. 
 
-Welcome to the **Virtual Audio Driver by MikeTheTech**! This project provides two key drivers based on the Windows Driver Kit (WDK):
-
-- **Virtual Audio Driver** – Creates a virtual speaker output device and a virtual microphone input device.
-
-Both features in the driver are suitable for remote desktop sessions, headless configurations, streaming setups, and more. They support Windows 10 and Windows 11, including advanced audio features like Windows Sonic (Spatial Sound), Exclusive Mode, Application Priority, and volume control.
-
-<div align="center">
-  <img src="https://github.com/user-attachments/assets/1e833f96-5565-4938-a242-b239074012b0" alt="image">
-  <img src="https://github.com/user-attachments/assets/db8c23f3-cf2d-409f-ada8-38d0aa8450a8" width="31%" alt="image">
-  <img src="https://github.com/user-attachments/assets/8cf14cc2-4ab0-41ad-a6b2-5a77b004a943" width="31%" alt="image">
-  <img src="https://github.com/user-attachments/assets/5f2e23cb-75d3-4557-98ff-7c717f47dcdd" width="31%" alt="image">
-</div>
-
-## Overview
-
-A virtual audio driver set consists of:
-
-- **Virtual Audio** ("fake" speaker output)  
-  - Essential for headless servers, remote desktop streaming, testing audio in environments without physical speakers, etc.
-
-- **Virtual Microphone** ("fake" mic input)  
-  - Ideal for streaming setups, voice chat tests, combining or routing audio internally, or feeding software-generated audio to apps expecting a microphone input.
-
-By installing these drivers, you can process or forward audio without physical hardware present, making them incredibly useful for various development, testing, and media production scenarios.
+This driver provides virtual audio endpoints (**DeckX Virtual Microphone** and **DeckX Audio Cable**) enabling Windows applications (Discord, OBS Studio, Zoom, games) to capture audio injected from DeckX soundboards, microphone chains, or audio effects without requiring commercial third-party software.
 
 ---
 
-## Key Features
+## 🎯 Features
 
-| Feature                                      | Virtual Speaker                                                                                                                                                                          | Virtual Microphone                                                                                                                              |
-|----------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------|
-| **Emulated Device**                          | Emulates a speaker device recognized by Windows.                                                                                                                                         | Emulates a microphone device recognized by Windows.                                                                                             |
-| **Supported Audio Formats**                  | **8-bit, 8000 Hz** (lowest quality) up to **32-bit, 192,000 Hz** (studio quality). This includes various presets such as Telephone Quality (8-bit, 11025 Hz) and DVD/Studio Quality (16/24/32-bit, up to 192 kHz). | **16-bit 44,100 Hz**, **16-bit 48,000 Hz**, **24-bit 96,000 Hz**, **24-bit 192,000 Hz**, **32-bit 48,000 Hz** (for testing or specialized scenarios). |
-| **Spatial Sound Support** (Speaker Only)     | Integrates with Windows Sonic, enabling immersive 3D audio features.                                                                                                                      | Integrated with Audio Enhancements such as Voice Focus and Background Noise Reduction.                                                          |
-| **Exclusive Mode and App Priority**          | Applications can claim exclusive control of the device.                                                                                                                                  | Same WDK architecture applies, allowing exclusive access in supported workflows.                                                                 |
-| **Volume Level Handling**                    | Handles global and per-application volume changes (Windows mixer).                                                                                                                        | Microphone level adjustments accessible via Windows Sound Settings or audio software.                                                            |
-| **High Customizability**                     | Built to be extended with future features and audio enhancements.                                                                                                                         | Allows flexible configuration of sampling rates and bit depths for specialized audio requirements.                                               |
-
----
-
-## Compatibility
-
-- **OS**: Windows 10 (Build 1903 and above) and Windows 11  
-- **Architecture**: x64 (tested); ARM64  
+- **Low Latency**: Sub-10ms loopback latency between playback (cable) and capture (mic) pins.
+- **Modern Windows Support**: Designed for Windows 10 (1903+) and Windows 11 (21H2, 22H2, 23H2, 24H2+).
+- **High Audio Fidelity**: Supports 48,000 Hz / 44,100 Hz (16-bit and 24-bit PCM stereo/mono).
+- **Branded Endpoints**: Automatically registered in Windows Audio as:
+  - `DeckX Virtual Microphone` (Recording / Capture)
+  - `DeckX Audio Cable` (Playback / Render)
+- **Production Code Signing**: Automated CI pipeline integration with **SignPath Foundation** for genuine Authenticode signing (no "Test Signing" mode watermark or warning needed).
+- **C# / WPF Ready**: Includes `.NET 8` Interop service (`DeckX.Audio.Interop`) for easy integration into WPF / WinUI desktop apps.
 
 ---
 
-## Installation
+## 📁 Repository Structure
 
-1. **Enable Test Signing (Optional)**  
-   If you have a test-signed driver, you may need to enable test signing mode:
-   ```powershell
-   bcdedit /set testsigning on
-   ```
-   *Note: A production-signed driver can skip this step.*
-
-2. **Open Device Manager**
-   - Choose **Audio inputs and outputs**, then in the top **Action** menu, choose **Add Legacy Hardware**.
-   - Choose **Install the hardware that I manually select from a list (Advanced)**
-   - Choose **Sound, video and game controllers**
-   - Choose "Have Disk..." and locate the **VirtualAudioDriver.inf**
-   - Continue with the installation.
-
-3. **Verify Installation**  
-   - Open **Device Manager**.  
-   - Check under **Sound, video and game controllers** for “Virtual Audio Driver” (speaker).  
-   - Check under **Audio inputs and outputs** for “Virtual Mic Driver” (microphone).
-
----
-
-## Usage
-
-### Using the Virtual Speaker
-
-1. **Select as Default Device**  
-   - Open **Sound Settings** → **Output** → Choose “Virtual Audio Driver” as your default output device.  
-   - Or use the **Volume Mixer** to route specific apps to the virtual speaker.
-
-2. **Remote Desktop or Streaming**  
-   - When initiating a remote desktop session, the virtual speaker device can appear as a valid playback device.  
-   - Streaming or capture apps can detect the virtual speaker for capturing system audio.
-
-3. **Choosing Quality Settings**  
-   - In **Sound Settings**, under **Playback Devices**, right-click the “Virtual Audio Driver” and select **Properties** → **Advanced** tab.  
-   - Choose from the newly added sample rates and bit depths (ranging from 8-bit, 8000 Hz to 32-bit, 192,000 Hz) to match your desired use case (e.g., “Telephone Quality,” “DVD Quality,” or “Studio Quality”).
-
-4. **Spatial Sound**  
-   - In **Sound Settings**, right-click the device, select **Properties** → **Spatial Sound** tab, and enable **Windows Sonic for Headphones** or another supported format.
-
-### Using the Virtual Microphone
-
-1. **Select as Default Recording Device**  
-   - Open **Sound Settings** → **Input** → Choose “Virtual Mic Driver” as your default input device.  
-   - Alternatively, in the **Volume Mixer** or your specific application’s audio settings, route or select the “Virtual Mic Driver” for input.
-
-2. **Supported Formats**  
-   - The Virtual Microphone Driver supports:
-     - **16-bit, 44,100 Hz**
-     - **16-bit, 48,000 Hz**
-     - **24-bit, 96,000 Hz**
-     - **24-bit, 192,000 Hz**
-     - **32-bit, 48,000 Hz**
-
-3. **Use Cases**  
-   - **Voice Chat / Conference Apps**: Emulate or inject audio into Zoom, Teams, Discord, etc.  
-   - **Streaming / Broadcasting**: Feed application-generated audio to OBS, XSplit, or other streaming tools.  
-   - **Audio Testing**: Confirm that your software or game engine’s microphone-handling logic works without real hardware.
-
-4. **Volume & Level Controls**  
-   - Adjust input levels in **Sound Settings** → **Recording** tab.  
-   - Per-app mic levels can be configured in certain software or system volume mixers (where supported).
+```
+DeckX-Virtual-Audio-Driver/
+├── .github/workflows/
+│   └── build-and-sign.yml        # GitHub Actions CI with SignPath code signing
+├── Source/                       # C/C++ WDK Kernel-Mode Driver Source
+│   ├── Main/                     # Adapter, WDF setup, and INF template
+│   ├── Filters/                  # Mic Array & Speaker topology filters
+│   └── Utilities/                # WaveRT circular buffer & tone generation
+├── Interop/
+│   └── DeckX.Audio.Interop/      # C# / .NET 8 library for WPF client integration
+├── Installer/
+│   ├── deckx_driver_setup.iss    # Inno Setup script for automated driver install
+│   ├── devcon.exe                # Microsoft Device Console (x64)
+│   ├── install_driver.bat        # 1-click elevated install script
+│   └── uninstall_driver.bat      # 1-click elevated uninstall script
+├── LICENSE                       # MIT License
+└── README.md
+```
 
 ---
 
-## Configuration
+## 🚀 Building from Source
 
-- **Exclusive Mode** (Speaker and Mic)  
-  By default, shared mode is enabled. For real-time, low-latency usage, open device properties, go to the **Advanced** tab, and uncheck “Allow applications to take exclusive control.”
+### Prerequisites
+1. **Visual Studio 2022** with:
+   - "Desktop development with C++"
+   - "MSVC v143 - VS 2022 C++ x64/x86 build tools"
+2. **Windows 11 Driver Kit (WDK)** matching your Windows SDK version:
+   - [Download the Windows WDK](https://learn.microsoft.com/en-us/windows-hardware/drivers/download-the-wdk)
 
-- **Application Priority**  
-  Supported through Windows APIs. To prioritize a specific application for either the speaker or microphone, configure it via Windows advanced sound options or in your audio software.
-
-- **Volume/Level Management**  
-  - For the Virtual Speaker, adjust in the main Sound Settings or the Volume Mixer.  
-  - For the Virtual Microphone, adjust input levels in the Recording tab of Sound Settings or in your audio software’s device preferences.
-
----
-
-## Future Plans
-
-- **Advanced Diagnostics**: Logging and debugging tools  
-- **New Modes & Additional Formats**: Continued expansion of supported audio qualities.  
-- **Additional Features**: Such as Automatic Volume Leveling (AVL), further spatial audio improvements, and custom routing tools.
+### Build via Command Line
+Run the included build script:
+```cmd
+build.bat release x64
+```
+Artifacts will be produced under `Package\x64\Release\package\`.
 
 ---
 
-## Attribution
+## 🔐 Production Signing via SignPath Foundation
 
-This project is built with the Microsoft Windows Driver Kit (WDK) and includes code derived from Microsoft Windows Driver Samples (notably the Sysvad / "Simple Audio Sample" audio driver).
+To deploy kernel drivers to standard Windows PCs without requiring users to run `bcdedit /set testsigning on`, binaries must be signed with a trusted Authenticode certificate.
 
-- **Windows Driver Kit (WDK)**: https://learn.microsoft.com/en-us/windows-hardware/drivers/download-the-wdk  
-- **Windows Driver Samples (Sysvad)**: https://github.com/microsoft/Windows-driver-samples/tree/main/audio/sysvad  
+This repository is configured to build and sign via the [SignPath Foundation Open Source Program](https://signpath.io/solutions/open-source-community):
 
-Original code in this repository is provided under the MIT License (see `LICENSE`). Third-party Microsoft sample code is provided under the Microsoft Public License (MS-PL); see `THIRD_PARTY_NOTICES.md` for the full license text and details.
+### 1. Requirements for SignPath Approval
+- The GitHub repository must be public.
+- The project must use an OSI-approved license (`MIT` included).
+- Builds must be performed on public GitHub Actions runners from the source repository.
 
-Microsoft, Windows, and Windows Driver Kit are trademarks of Microsoft Corporation.
+### 2. Configure GitHub Secrets & Variables
+Once approved by SignPath, add the following to your GitHub repository settings (**Settings -> Secrets and variables -> Actions**):
 
-> This project is maintained and actively improved. We welcome contributions, suggestions, and issue reports!
+| Name | Type | Description |
+|---|---|---|
+| `SIGNPATH_API_TOKEN` | Secret | Your SignPath organization API token |
+| `SIGNPATH_ORGANIZATION_ID` | Variable | Your SignPath Organization ID GUID |
+| `SIGNPATH_PROJECT_SLUG` | Variable | The slug of your SignPath project (e.g. `deckx-virtual-audio-driver`) |
+
+When you push a commit or tag to `main`/`master`, the `.github/workflows/build-and-sign.yml` workflow compiles the driver, submits it to SignPath, receives the signed binaries, and packages the signed installer.
 
 ---
 
-**Thank you for using the Virtual Audio Driver!**  
-Feel free to open issues or submit pull requests if you encounter any problems or have ideas to share. Happy audio routing!
+## 💻 C# / WPF Integration (`DeckX.Audio.Interop`)
+
+Add a project reference to `DeckX.Audio.Interop.csproj` in your WPF app:
+
+### 1. Checking Driver Status
+```csharp
+using DeckX.Audio.Interop;
+
+var driverService = new DeckXAudioDriverService();
+
+if (!driverService.IsDriverInstalled())
+{
+    // Guide user to install the driver
+    await driverService.InstallDriverAsync(@"Assets\Driver");
+}
+```
+
+### 2. Injecting Soundboard Audio into the Virtual Mic
+```csharp
+using DeckX.Audio.Interop;
+
+var audioRouter = new DeckXAudioRoutingService();
+
+// Play soundboard effect directly to the virtual microphone
+await audioRouter.PlayFileToVirtualMicAsync(@"C:\Audio\airhorn.mp3");
+```
+
+---
+
+## 📦 Installer Packaging (Inno Setup)
+
+To create a standalone setup executable that installs and configures the driver silently on end-user PCs:
+1. Open `Installer\deckx_driver_setup.iss` in [Inno Setup 6](https://jrsoftware.org/isdl.php).
+2. Click **Build -> Compile**.
+3. Output executable will be generated at `Installer\Output\DeckX_Virtual_Audio_Driver_Setup.exe`.
+
+---
+
+## 📄 License
+
+This project is licensed under the [MIT License](LICENSE) - see the LICENSE file for details.
+Based on the open-source Sysvad/Virtual-Audio-Driver project.

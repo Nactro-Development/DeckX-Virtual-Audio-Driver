@@ -16,12 +16,12 @@ Abstract:
 
 #define VER_FILETYPE                VFT_DRV
 #define VER_FILESUBTYPE             VFT2_DRV_SOUND
-#define VER_FILEDESCRIPTION_STR     "Microsoft Virtual Simple Audio Sample Driver"
-#define VER_INTERNALNAME_STR        "VirtualAudioDriver.sys"
-#define VER_ORIGINALFILENAME_STR    "VirtualAudioDriver.sys"
+#define VER_FILEDESCRIPTION_STR     "DeckX Virtual Audio Driver"
+#define VER_INTERNALNAME_STR        "DeckXVirtualAudio.sys"
+#define VER_ORIGINALFILENAME_STR    "DeckXVirtualAudio.sys"
 
-#define VER_LEGALCOPYRIGHT_YEARS    "2013"
-#define VER_LEGALCOPYRIGHT_STR	    "Copyright (C) Microsoft Corp." VER_LEGALCOPYRIGHT_YEARS
+#define VER_LEGALCOPYRIGHT_YEARS    "2026"
+#define VER_LEGALCOPYRIGHT_STR	    "Copyright (C) Nactro Development " VER_LEGALCOPYRIGHT_YEARS
 
 #include "common.ver"
 

@@ -1,0 +1,81 @@
+﻿name: Build and Sign DeckX Virtual Audio Driver
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ master, main ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  build:
+    name: Build Driver (Release x64)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Install WDK and C++ Build Tools
+        run: |
+          choco install visualstudio2022-workload-nativedesktop -y --no-progress
+          choco install windowsdriverkit11 -y --no-progress
+
+      - name: Build Driver Solution
+        run: |
+          msbuild VirtualAudioDriver.sln `
+            /p:Configuration=Release `
+            /p:Platform=x64 `
+            /p:RunCodeAnalysis=false `
+            /p:ValidateDrivers=false `
+            /m
+
+      - name: Prepare Driver Artifacts for Signing
+        id: prepare_artifacts
+        run: |
+          $artifactDir = "$env:RUNNER_TEMP\driver-unsigned"
+          New-Item -ItemType Directory -Force -Path $artifactDir
+          
+          # Collect built binaries
+          Copy-Item "Package\x64\Release\package\*.sys" $artifactDir -Force -ErrorAction SilentlyContinue
+          Copy-Item "Package\x64\Release\package\*.inf" $artifactDir -Force -ErrorAction SilentlyContinue
+          Copy-Item "Package\x64\Release\package\*.cat" $artifactDir -Force -ErrorAction SilentlyContinue
+          Copy-Item "Installer\devcon.exe" $artifactDir -Force
+          Copy-Item "Installer\apply_deckx_branding.ps1" $artifactDir -Force
+          Copy-Item "Installer\install_driver.bat" $artifactDir -Force
+          Copy-Item "Installer\uninstall_driver.bat" $artifactDir -Force
+
+          # Create zip archive for SignPath submission
+          Compress-Archive -Path "$artifactDir\*" -DestinationPath "$env:RUNNER_TEMP\DeckXVirtualAudio-unsigned.zip" -Force
+          Write-Output "driver_zip=$env:RUNNER_TEMP\DeckXVirtualAudio-unsigned.zip" >> $env:GITHUB_OUTPUT
+
+      - name: Submit to SignPath for Code Signing
+        if: github.event_name != 'pull_request' && env.SIGNPATH_API_TOKEN != ''
+        uses: SignPath/github-action-submit-signing-request@v1
+        env:
+          SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: 'release-signing'
+          artifact-configuration-slug: 'driver-package'
+          wait-for-completion: true
+          output-artifact-directory: '${{ github.workspace }}/signed-driver'
+
+      - name: Compile Inno Setup Installer
+        run: |
+          choco install innosetup -y --no-progress
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" Installer\deckx_driver_setup.iss
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: DeckX-Virtual-Audio-Driver
+          path: |
+            Installer\Output\*.exe
+            ${{ steps.prepare_artifacts.outputs.driver_zip }}
