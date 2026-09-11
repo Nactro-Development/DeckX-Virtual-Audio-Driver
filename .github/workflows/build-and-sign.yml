@@ -1,4 +1,4 @@
-﻿name: Build and Sign DeckX Virtual Audio Driver
+name: Build and Sign DeckX Virtual Audio Driver
 
 on:
   workflow_dispatch:
@@ -105,8 +105,8 @@ jobs:
 
           # Set dynamic release tag
           $tag = "v1.0." + $env:GITHUB_RUN_NUMBER
-          echo "RELEASE_TAG=$tag" >> $env:GITHUB_ENV
-          Write-Host "Prepared assets for release $tag:"
+          "RELEASE_TAG=$tag" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "Prepared assets for release: $tag"
           Get-ChildItem $releaseDir | Select-Object Name, Length
 
       - name: Publish Direct GitHub Release
