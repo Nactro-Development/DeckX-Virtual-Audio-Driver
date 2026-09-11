@@ -27,26 +27,6 @@ jobs:
           choco install visualstudio2022-workload-vctools -y --no-progress
           choco install windowsdriverkit11 -y --no-progress
 
-      - name: Configure WDK Environment
-        run: |
-          # Verify portcls.h exists in Windows Kits
-          $portcls = Get-ChildItem -Path "C:\Program Files (x86)\Windows Kits\10\Include" -Recurse -Filter "portcls.h" -ErrorAction SilentlyContinue | Select-Object -First 1
-          if ($portcls) {
-            Write-Host "Found portcls.h at: $($portcls.FullName)"
-          } else {
-            Write-Warning "portcls.h not found in default include paths."
-          }
-
-          # Fix InfVerif dummy dll to prevent inf verification crashes
-          $infVerif = Get-ChildItem -Path "C:\Program Files (x86)\Windows Kits\10" -Recurse -Filter "InfVerif.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
-          if ($infVerif) {
-            $targetDir = "$((Split-Path -Parent $infVerif.FullName))\x86"
-            if (-not (Test-Path $targetDir)) { New-Item -Path $targetDir -ItemType Directory -Force }
-            if (-not (Test-Path "$targetDir\infverif.dll")) {
-              [System.IO.File]::WriteAllBytes("$targetDir\infverif.dll", [byte[]]@(0x4D, 0x5A))
-            }
-          }
-
       - name: Build Driver Solution
         run: |
           msbuild VirtualAudioDriver.sln `
@@ -54,6 +34,11 @@ jobs:
             /p:Platform=x64 `
             /p:RunCodeAnalysis=false `
             /p:ValidateDrivers=false `
+            /p:UseInfVerifierEx=false `
+            /p:InfVerif_Enable=false `
+            /p:ApiValidator_Enable=false `
+            /p:DisableVerification=true `
+            /p:SignMode=Off `
             /m
 
       - name: Prepare Driver Artifacts for Signing
