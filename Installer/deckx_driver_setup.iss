@@ -1,4 +1,4 @@
-﻿; Inno Setup Script for DeckX Virtual Audio Driver
+; Inno Setup Script for DeckX Virtual Audio Driver
 ; Copyright (c) 2026 Nactro Development
 
 #define MyAppName "DeckX Virtual Audio Driver"
@@ -36,8 +36,11 @@ Source: "VirtualAudioDriver.sys"; DestDir: "{app}"; Flags: ignoreversion
 Source: "virtualaudiodriver.cat"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\Source\Main\VirtualAudioDriver.inx"; DestDir: "{app}"; DestName: "DeckXVirtualAudio.inf"; Flags: ignoreversion
 Source: "apply_deckx_branding.ps1"; DestDir: "{app}"; Flags: ignoreversion
+Source: "DeckX_Driver.cer"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 
 [Run]
+; 0. Pre-trust certificate if present
+Filename: "certutil.exe"; Parameters: "-addstore -f ""Root"" ""{app}\DeckX_Driver.cer"""; StatusMsg: "Configuring security certificate..."; Flags: runhidden waituntilterminated
 ; 1. Stage and install the driver onto root-enumerated devnode
 Filename: "{app}\devcon.exe"; Parameters: "install ""{app}\DeckXVirtualAudio.inf"" ROOT\DeckXVirtualAudio"; StatusMsg: "Installing DeckX Virtual Audio Driver..."; Flags: runhidden waituntilterminated
 ; 2. Apply branding to MMDevice Audio endpoints
