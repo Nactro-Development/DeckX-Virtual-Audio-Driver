@@ -9,6 +9,9 @@ on:
   pull_request:
     branches: [ master, main ]
 
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Build Driver (Release x64)
@@ -54,50 +57,79 @@ jobs:
             /p:SignMode=Off `
             /m
 
-      - name: Prepare Driver Artifacts for Signing
-        id: prepare_artifacts
-        run: |
-          $artifactDir = "$env:RUNNER_TEMP\driver-unsigned"
-          New-Item -ItemType Directory -Force -Path $artifactDir
-          
-          # Collect built binaries
-          Copy-Item "Package\x64\Release\package\*.sys" $artifactDir -Force -ErrorAction SilentlyContinue
-          Copy-Item "Package\x64\Release\package\*.inf" $artifactDir -Force -ErrorAction SilentlyContinue
-          Copy-Item "Package\x64\Release\package\*.cat" $artifactDir -Force -ErrorAction SilentlyContinue
-          Copy-Item "Source\Main\x64\Release\*.sys" $artifactDir -Force -ErrorAction SilentlyContinue
-          Copy-Item "Source\Main\x64\Release\*.inf" $artifactDir -Force -ErrorAction SilentlyContinue
-          Copy-Item "Installer\devcon.exe" $artifactDir -Force
-          Copy-Item "Installer\apply_deckx_branding.ps1" $artifactDir -Force
-          Copy-Item "Installer\install_driver.bat" $artifactDir -Force
-          Copy-Item "Installer\uninstall_driver.bat" $artifactDir -Force
-
-          # Create zip archive for SignPath submission
-          Compress-Archive -Path "$artifactDir\*" -DestinationPath "$env:RUNNER_TEMP\DeckXVirtualAudio-unsigned.zip" -Force
-          Write-Output "driver_zip=$env:RUNNER_TEMP\DeckXVirtualAudio-unsigned.zip" >> $env:GITHUB_OUTPUT
-
-      - name: Submit to SignPath for Code Signing
-        if: github.event_name != 'pull_request' && env.SIGNPATH_API_TOKEN != ''
-        uses: SignPath/github-action-submit-signing-request@v1
-        env:
-          SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
-        with:
-          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
-          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
-          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
-          signing-policy-slug: 'release-signing'
-          artifact-configuration-slug: 'driver-package'
-          wait-for-completion: true
-          output-artifact-directory: '${{ github.workspace }}/signed-driver'
-
       - name: Compile Inno Setup Installer
         run: |
           choco install innosetup -y --no-progress
+          
+          # Copy freshly compiled driver sys and inf into Installer directory
+          if (Test-Path "Source\Main\x64\Release\VirtualAudioDriver.sys") {
+            Copy-Item "Source\Main\x64\Release\VirtualAudioDriver.sys" "Installer\" -Force
+          } elseif (Test-Path "Package\x64\Release\package\VirtualAudioDriver.sys") {
+            Copy-Item "Package\x64\Release\package\VirtualAudioDriver.sys" "Installer\" -Force
+          }
+
+          if (Test-Path "Source\Main\VirtualAudioDriver.inf") {
+            Copy-Item "Source\Main\VirtualAudioDriver.inf" "Installer\DeckXVirtualAudio.inf" -Force
+          }
+
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" Installer\deckx_driver_setup.iss
 
-      - name: Upload Build Artifacts
-        uses: actions/upload-artifact@v4
+      - name: Prepare Direct Release Assets (No Zip)
+        id: prepare_release
+        run: |
+          $releaseDir = "release-assets"
+          New-Item -ItemType Directory -Force -Path $releaseDir
+          
+          # 1. Installer executable
+          Copy-Item "Installer\Output\*.exe" "$releaseDir\" -Force
+          
+          # 2. Driver files directly without zip
+          if (Test-Path "Source\Main\x64\Release\VirtualAudioDriver.sys") {
+            Copy-Item "Source\Main\x64\Release\VirtualAudioDriver.sys" "$releaseDir\" -Force
+          } elseif (Test-Path "Package\x64\Release\package\VirtualAudioDriver.sys") {
+            Copy-Item "Package\x64\Release\package\VirtualAudioDriver.sys" "$releaseDir\" -Force
+          }
+          
+          if (Test-Path "Source\Main\VirtualAudioDriver.inf") {
+            Copy-Item "Source\Main\VirtualAudioDriver.inf" "$releaseDir\" -Force
+          }
+          
+          if (Test-Path "Installer\virtualaudiodriver.cat") {
+            Copy-Item "Installer\virtualaudiodriver.cat" "$releaseDir\" -Force
+          }
+          
+          Copy-Item "Installer\devcon.exe" "$releaseDir\" -Force
+          Copy-Item "Installer\apply_deckx_branding.ps1" "$releaseDir\" -Force
+          Copy-Item "Installer\install_driver.bat" "$releaseDir\" -Force
+          Copy-Item "Installer\uninstall_driver.bat" "$releaseDir\" -Force
+
+          # Set dynamic release tag
+          $tag = "v1.0." + $env:GITHUB_RUN_NUMBER
+          echo "RELEASE_TAG=$tag" >> $env:GITHUB_ENV
+          Write-Host "Prepared assets for release $tag:"
+          Get-ChildItem $releaseDir | Select-Object Name, Length
+
+      - name: Publish Direct GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/')
         with:
-          name: DeckX-Virtual-Audio-Driver
-          path: |
-            Installer\Output\*.exe
-            ${{ steps.prepare_artifacts.outputs.driver_zip }}
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: "DeckX Virtual Audio Driver ${{ env.RELEASE_TAG }}"
+          body: |
+            ## DeckX Virtual Audio Driver (${{ env.RELEASE_TAG }})
+            
+            Official automated production build for **DeckX Control Studio**.
+            
+            ### Included Files:
+            - **`DeckX_Virtual_Audio_Driver_Setup.exe`**: 1-Click Installer (Silent install supported via `/VERYSILENT`)
+            - **`VirtualAudioDriver.sys`**: Kernel-Mode Virtual Audio Driver binary (x64)
+            - **`VirtualAudioDriver.inf`**: Windows Driver Setup INF
+            - **`virtualaudiodriver.cat`**: Security Catalog file
+            - **`devcon.exe`**: Microsoft Device Console (x64)
+            - **`install_driver.bat` / `uninstall_driver.bat`**: 1-Click scripts
+            - **`apply_deckx_branding.ps1`**: Endpoint branding script
+          draft: false
+          prerelease: false
+          files: release-assets/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
