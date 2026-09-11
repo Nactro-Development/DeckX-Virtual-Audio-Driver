@@ -12,13 +12,14 @@
 // DeckX Virtual Audio Driver: Global Shared Loopback Ring Buffer
 //=============================================================================
 #define DECKX_LOOPBACK_BUFFER_SIZE (64 * 1024) // 64 KB ring buffer for low latency audio transfer
-static BYTE  g_DeckXLoopbackBuffer[DECKX_LOOPBACK_BUFFER_SIZE];
-static ULONG g_DeckXLoopbackWritePos = 0;
-static ULONG g_DeckXLoopbackReadPos = 0;
+static BYTE       g_DeckXLoopbackBuffer[DECKX_LOOPBACK_BUFFER_SIZE];
+static ULONG      g_DeckXLoopbackWritePos = 0;
+static ULONG      g_DeckXLoopbackReadPos = 0;
+static ULONG      g_DeckXLoopbackAvailable = 0;
 static KSPIN_LOCK g_DeckXLoopbackLock;
 static BOOLEAN    g_DeckXLoopbackLockInitialized = FALSE;
 
-static void DeckX_WriteToLoopback(const BYTE* pData, ULONG byteCount)
+static void DeckX_WriteToLoopback(const BYTE* pData, ULONG byteCount, USHORT bitsPerSample)
 {
     if (!pData || byteCount == 0) return;
     if (!g_DeckXLoopbackLockInitialized)
@@ -30,16 +31,78 @@ static void DeckX_WriteToLoopback(const BYTE* pData, ULONG byteCount)
     KIRQL oldIrql;
     KeAcquireSpinLock(&g_DeckXLoopbackLock, &oldIrql);
 
-    for (ULONG i = 0; i < byteCount; i++)
+    if (bitsPerSample == 32)
     {
-        g_DeckXLoopbackBuffer[g_DeckXLoopbackWritePos] = pData[i];
-        g_DeckXLoopbackWritePos = (g_DeckXLoopbackWritePos + 1) % DECKX_LOOPBACK_BUFFER_SIZE;
+        ULONG sampleCount = byteCount / 4;
+        const INT32* pSrc = (const INT32*)pData;
+        for (ULONG i = 0; i < sampleCount; i++)
+        {
+            INT16 sample16 = (INT16)(pSrc[i] >> 16);
+            BYTE b0 = (BYTE)(sample16 & 0xFF);
+            BYTE b1 = (BYTE)((sample16 >> 8) & 0xFF);
+
+            g_DeckXLoopbackBuffer[g_DeckXLoopbackWritePos] = b0;
+            g_DeckXLoopbackWritePos = (g_DeckXLoopbackWritePos + 1) % DECKX_LOOPBACK_BUFFER_SIZE;
+            g_DeckXLoopbackBuffer[g_DeckXLoopbackWritePos] = b1;
+            g_DeckXLoopbackWritePos = (g_DeckXLoopbackWritePos + 1) % DECKX_LOOPBACK_BUFFER_SIZE;
+
+            if (g_DeckXLoopbackAvailable + 2 <= DECKX_LOOPBACK_BUFFER_SIZE)
+            {
+                g_DeckXLoopbackAvailable += 2;
+            }
+            else
+            {
+                g_DeckXLoopbackReadPos = (g_DeckXLoopbackReadPos + 2) % DECKX_LOOPBACK_BUFFER_SIZE;
+            }
+        }
+    }
+    else if (bitsPerSample == 24)
+    {
+        ULONG sampleCount = byteCount / 3;
+        for (ULONG i = 0; i < sampleCount; i++)
+        {
+            INT32 val = (pData[3 * i]) | (pData[3 * i + 1] << 8) | ((INT8)pData[3 * i + 2] << 16);
+            INT16 sample16 = (INT16)(val >> 8);
+            BYTE b0 = (BYTE)(sample16 & 0xFF);
+            BYTE b1 = (BYTE)((sample16 >> 8) & 0xFF);
+
+            g_DeckXLoopbackBuffer[g_DeckXLoopbackWritePos] = b0;
+            g_DeckXLoopbackWritePos = (g_DeckXLoopbackWritePos + 1) % DECKX_LOOPBACK_BUFFER_SIZE;
+            g_DeckXLoopbackBuffer[g_DeckXLoopbackWritePos] = b1;
+            g_DeckXLoopbackWritePos = (g_DeckXLoopbackWritePos + 1) % DECKX_LOOPBACK_BUFFER_SIZE;
+
+            if (g_DeckXLoopbackAvailable + 2 <= DECKX_LOOPBACK_BUFFER_SIZE)
+            {
+                g_DeckXLoopbackAvailable += 2;
+            }
+            else
+            {
+                g_DeckXLoopbackReadPos = (g_DeckXLoopbackReadPos + 2) % DECKX_LOOPBACK_BUFFER_SIZE;
+            }
+        }
+    }
+    else // Default: 16-bit PCM
+    {
+        for (ULONG i = 0; i < byteCount; i++)
+        {
+            g_DeckXLoopbackBuffer[g_DeckXLoopbackWritePos] = pData[i];
+            g_DeckXLoopbackWritePos = (g_DeckXLoopbackWritePos + 1) % DECKX_LOOPBACK_BUFFER_SIZE;
+
+            if (g_DeckXLoopbackAvailable < DECKX_LOOPBACK_BUFFER_SIZE)
+            {
+                g_DeckXLoopbackAvailable++;
+            }
+            else
+            {
+                g_DeckXLoopbackReadPos = (g_DeckXLoopbackReadPos + 1) % DECKX_LOOPBACK_BUFFER_SIZE;
+            }
+        }
     }
 
     KeReleaseSpinLock(&g_DeckXLoopbackLock, oldIrql);
 }
 
-static void DeckX_ReadFromLoopback(BYTE* pDest, ULONG byteCount)
+static void DeckX_ReadFromLoopback(BYTE* pDest, ULONG byteCount, USHORT bitsPerSample)
 {
     if (!pDest || byteCount == 0) return;
     if (!g_DeckXLoopbackLockInitialized)
@@ -51,17 +114,70 @@ static void DeckX_ReadFromLoopback(BYTE* pDest, ULONG byteCount)
     KIRQL oldIrql;
     KeAcquireSpinLock(&g_DeckXLoopbackLock, &oldIrql);
 
-    for (ULONG i = 0; i < byteCount; i++)
+    if (bitsPerSample == 32)
     {
-        if (g_DeckXLoopbackReadPos != g_DeckXLoopbackWritePos)
+        ULONG sampleCount = byteCount / 4;
+        INT32* pDst32 = (INT32*)pDest;
+        for (ULONG i = 0; i < sampleCount; i++)
         {
-            pDest[i] = g_DeckXLoopbackBuffer[g_DeckXLoopbackReadPos];
-            g_DeckXLoopbackReadPos = (g_DeckXLoopbackReadPos + 1) % DECKX_LOOPBACK_BUFFER_SIZE;
+            if (g_DeckXLoopbackAvailable >= 2)
+            {
+                BYTE b0 = g_DeckXLoopbackBuffer[g_DeckXLoopbackReadPos];
+                g_DeckXLoopbackReadPos = (g_DeckXLoopbackReadPos + 1) % DECKX_LOOPBACK_BUFFER_SIZE;
+                BYTE b1 = g_DeckXLoopbackBuffer[g_DeckXLoopbackReadPos];
+                g_DeckXLoopbackReadPos = (g_DeckXLoopbackReadPos + 1) % DECKX_LOOPBACK_BUFFER_SIZE;
+                g_DeckXLoopbackAvailable -= 2;
+
+                INT16 s16 = (INT16)(b0 | (b1 << 8));
+                pDst32[i] = ((INT32)s16) << 16;
+            }
+            else
+            {
+                pDst32[i] = 0;
+            }
         }
-        else
+    }
+    else if (bitsPerSample == 24)
+    {
+        ULONG sampleCount = byteCount / 3;
+        for (ULONG i = 0; i < sampleCount; i++)
         {
-            // If buffer is empty, fill with silence
-            pDest[i] = 0;
+            if (g_DeckXLoopbackAvailable >= 2)
+            {
+                BYTE b0 = g_DeckXLoopbackBuffer[g_DeckXLoopbackReadPos];
+                g_DeckXLoopbackReadPos = (g_DeckXLoopbackReadPos + 1) % DECKX_LOOPBACK_BUFFER_SIZE;
+                BYTE b1 = g_DeckXLoopbackBuffer[g_DeckXLoopbackReadPos];
+                g_DeckXLoopbackReadPos = (g_DeckXLoopbackReadPos + 1) % DECKX_LOOPBACK_BUFFER_SIZE;
+                g_DeckXLoopbackAvailable -= 2;
+
+                INT16 s16 = (INT16)(b0 | (b1 << 8));
+                INT32 val = ((INT32)s16) << 8;
+                pDest[3 * i] = (BYTE)(val & 0xFF);
+                pDest[3 * i + 1] = (BYTE)((val >> 8) & 0xFF);
+                pDest[3 * i + 2] = (BYTE)((val >> 16) & 0xFF);
+            }
+            else
+            {
+                pDest[3 * i] = 0;
+                pDest[3 * i + 1] = 0;
+                pDest[3 * i + 2] = 0;
+            }
+        }
+    }
+    else // Default: 16-bit PCM
+    {
+        for (ULONG i = 0; i < byteCount; i++)
+        {
+            if (g_DeckXLoopbackAvailable > 0)
+            {
+                pDest[i] = g_DeckXLoopbackBuffer[g_DeckXLoopbackReadPos];
+                g_DeckXLoopbackReadPos = (g_DeckXLoopbackReadPos + 1) % DECKX_LOOPBACK_BUFFER_SIZE;
+                g_DeckXLoopbackAvailable--;
+            }
+            else
+            {
+                pDest[i] = 0;
+            }
         }
     }
 
@@ -1424,11 +1540,8 @@ VOID CMiniportWaveRTStream::UpdatePosition
             m_bLastBufferRendered = TRUE;
         }
 
-        if (!g_DoNotCreateDataFiles)
-        {
-            // Read from buffer and write to a file.
-            ReadBytes(ByteDisplacement);
-        }
+        // Read from buffer and write into DeckX Loopback ring buffer
+        ReadBytes(ByteDisplacement);
     }
     
     // Increment the DMA position by the number of bytes displaced since the last
@@ -1467,13 +1580,14 @@ ByteDisplacement - # of bytes to process.
 --*/
 {
     ULONG bufferOffset = m_ullLinearPosition % m_ulDmaBufferSize;
+    USHORT bits = m_pWfExt ? m_pWfExt->Format.wBitsPerSample : 16;
 
     while (ByteDisplacement > 0)
     {
         ULONG runWrite = min(ByteDisplacement, m_ulDmaBufferSize - bufferOffset);
         
         // Read incoming audio routed from DeckX Audio Cable into Virtual Microphone
-        DeckX_ReadFromLoopback(m_pDmaBuffer + bufferOffset, runWrite);
+        DeckX_ReadFromLoopback(m_pDmaBuffer + bufferOffset, runWrite, bits);
            	
         bufferOffset = (bufferOffset + runWrite) % m_ulDmaBufferSize;
         ByteDisplacement -= runWrite;
@@ -1500,13 +1614,14 @@ ByteDisplacement - # of bytes to process.
 --*/
 {
     ULONG bufferOffset = m_ullLinearPosition % m_ulDmaBufferSize;
+    USHORT bits = m_pWfExt ? m_pWfExt->Format.wBitsPerSample : 16;
 
     while (ByteDisplacement > 0)
     {
         ULONG runWrite = min(ByteDisplacement, m_ulDmaBufferSize - bufferOffset);
         
         // Write audio played into DeckX Audio Cable into the Loopback ring buffer
-        DeckX_WriteToLoopback(m_pDmaBuffer + bufferOffset, runWrite);
+        DeckX_WriteToLoopback(m_pDmaBuffer + bufferOffset, runWrite, bits);
 
         bufferOffset = (bufferOffset + runWrite) % m_ulDmaBufferSize;
         ByteDisplacement -= runWrite;

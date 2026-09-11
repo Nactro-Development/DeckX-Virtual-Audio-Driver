@@ -35,6 +35,64 @@ static
 KSDATAFORMAT_WAVEFORMATEXTENSIBLE MicArrayPinSupportedDeviceFormats[] =
 {
     //------------------------------------------------------------------------
+    // 48 KHz, 16-bit, 2 channels (Stereo) - Matches Speaker Output
+    //------------------------------------------------------------------------
+    {
+        {
+            sizeof(KSDATAFORMAT_WAVEFORMATEXTENSIBLE),
+            0,
+            0,
+            0,
+            STATICGUIDOF(KSDATAFORMAT_TYPE_AUDIO),
+            STATICGUIDOF(KSDATAFORMAT_SUBTYPE_PCM),
+            STATICGUIDOF(KSDATAFORMAT_SPECIFIER_WAVEFORMATEX)
+        },
+        {
+            {
+                WAVE_FORMAT_EXTENSIBLE,       // wFormatTag
+                2,                           // nChannels
+                48000,                       // nSamplesPerSec
+                48000 * 2 * 2, // nAvgBytesPerSec = 48000 * channels * bytes_per_sample
+                2 * 2,         // nBlockAlign = channels * bytes_per_sample
+                16,
+                sizeof(WAVEFORMATEXTENSIBLE) - sizeof(WAVEFORMATEX)
+            },
+            16,
+            KSAUDIO_SPEAKER_STEREO,
+            STATICGUIDOF(KSDATAFORMAT_SUBTYPE_PCM)
+        }
+    },
+
+    //------------------------------------------------------------------------
+    // 44.1 KHz, 16-bit, 2 channels (Stereo)
+    //------------------------------------------------------------------------
+    {
+        {
+            sizeof(KSDATAFORMAT_WAVEFORMATEXTENSIBLE),
+            0,
+            0,
+            0,
+            STATICGUIDOF(KSDATAFORMAT_TYPE_AUDIO),
+            STATICGUIDOF(KSDATAFORMAT_SUBTYPE_PCM),
+            STATICGUIDOF(KSDATAFORMAT_SPECIFIER_WAVEFORMATEX)
+        },
+        {
+            {
+                WAVE_FORMAT_EXTENSIBLE,       // wFormatTag
+                2,                           // nChannels
+                44100,                       // nSamplesPerSec
+                44100 * 2 * 2,  // nAvgBytesPerSec = 44100 * channels * bytes_per_sample
+                2 * 2,          // nBlockAlign = channels * bytes_per_sample
+                16,
+                sizeof(WAVEFORMATEXTENSIBLE) - sizeof(WAVEFORMATEX)
+            },
+            16,                             // wValidBitsPerSample
+            KSAUDIO_SPEAKER_STEREO,
+            STATICGUIDOF(KSDATAFORMAT_SUBTYPE_PCM)
+        }
+    },
+
+    //------------------------------------------------------------------------
     // 48 KHz, 32-bit, 2 channels (Stereo)
     //------------------------------------------------------------------------
     {
@@ -59,64 +117,6 @@ KSDATAFORMAT_WAVEFORMATEXTENSIBLE MicArrayPinSupportedDeviceFormats[] =
             },
             32,                              // Samples (wValidBitsPerSample)
             KSAUDIO_SPEAKER_STEREO,          // dwChannelMask
-            STATICGUIDOF(KSDATAFORMAT_SUBTYPE_PCM)
-        }
-    },
-
-    //------------------------------------------------------------------------
-    // 44.1 KHz, 16-bit, 2 channels (Stereo)
-    //------------------------------------------------------------------------
-    {
-        {
-            sizeof(KSDATAFORMAT_WAVEFORMATEXTENSIBLE),
-            0,
-            0,
-            0,
-            STATICGUIDOF(KSDATAFORMAT_TYPE_AUDIO),
-            STATICGUIDOF(KSDATAFORMAT_SUBTYPE_PCM),
-            STATICGUIDOF(KSDATAFORMAT_SPECIFIER_WAVEFORMATEX)
-        },
-        {
-            {
-                WAVE_FORMAT_EXTENSIBLE,
-                2,
-                44100,
-                44100 * 2 * 2,  // nAvgBytesPerSec = 44100 * channels * bytes_per_sample
-                2 * 2,          // nBlockAlign = channels * bytes_per_sample
-                16,
-                sizeof(WAVEFORMATEXTENSIBLE) - sizeof(WAVEFORMATEX)
-            },
-            16,                             // wValidBitsPerSample
-            KSAUDIO_SPEAKER_STEREO,
-            STATICGUIDOF(KSDATAFORMAT_SUBTYPE_PCM)
-        }
-    },
-
-    //------------------------------------------------------------------------
-    // 48 KHz, 16-bit, 2 channels (Stereo)
-    //------------------------------------------------------------------------
-    {
-        {
-            sizeof(KSDATAFORMAT_WAVEFORMATEXTENSIBLE),
-            0,
-            0,
-            0,
-            STATICGUIDOF(KSDATAFORMAT_TYPE_AUDIO),
-            STATICGUIDOF(KSDATAFORMAT_SUBTYPE_PCM),
-            STATICGUIDOF(KSDATAFORMAT_SPECIFIER_WAVEFORMATEX)
-        },
-        {
-            {
-                WAVE_FORMAT_EXTENSIBLE,
-                2,
-                48000,
-                48000 * 2 * 2, // nAvgBytesPerSec = 48000 * channels * bytes_per_sample
-                2 * 2,         // nBlockAlign = channels * bytes_per_sample
-                16,
-                sizeof(WAVEFORMATEXTENSIBLE) - sizeof(WAVEFORMATEX)
-            },
-            16,
-            KSAUDIO_SPEAKER_STEREO,
             STATICGUIDOF(KSDATAFORMAT_SUBTYPE_PCM)
         }
     },
